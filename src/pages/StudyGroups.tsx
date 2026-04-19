@@ -1,31 +1,106 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Search, Users, Plus } from "lucide-react";
+import { Search, Users, Plus, MessageCircle } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
+import { toast } from "sonner";
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter,
+} from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
 
-const groups = [
-  { id: 1, name: "Data Structures & Algorithms", subject: "CS201", members: 8, maxMembers: 15, tags: ["Computer Science", "Coding"], description: "Weekly problem-solving sessions." },
-  { id: 2, name: "Calculus II Review", subject: "MATH202", members: 12, maxMembers: 20, tags: ["Mathematics"], description: "Exam prep and homework help." },
-  { id: 3, name: "Physics Lab Partners", subject: "PHY101", members: 4, maxMembers: 6, tags: ["Physics", "Lab"], description: "Collaborate on lab reports." },
-  { id: 4, name: "English Literature Circle", subject: "ENG301", members: 6, maxMembers: 10, tags: ["Literature"], description: "Book discussions and essay reviews." },
-  { id: 5, name: "Organic Chemistry Study", subject: "CHEM301", members: 10, maxMembers: 12, tags: ["Chemistry"], description: "Reaction mechanisms practice." },
-  { id: 6, name: "Statistics for Business", subject: "STAT201", members: 7, maxMembers: 15, tags: ["Statistics", "Business"], description: "Real-world case studies." },
-];
+type Group = {
+  id: string; name: string; subject: string; description: string | null;
+  tags: string[] | null; max_members: number; owner_id: string;
+  member_count?: number; is_member?: boolean;
+};
 
 const StudyGroups = () => {
   const [search, setSearch] = useState("");
-  const filtered = groups.filter(g => g.name.toLowerCase().includes(search.toLowerCase()) || g.subject.toLowerCase().includes(search.toLowerCase()));
+  const [groups, setGroups] = useState<Group[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [open, setOpen] = useState(false);
+  const [form, setForm] = useState({ name: "", subject: "", description: "", tags: "", max_members: 20 });
+  const [creating, setCreating] = useState(false);
+  const { user } = useAuth();
+  const navigate = useNavigate();
+
+  const load = async () => {
+    setLoading(true);
+    const { data: gs, error } = await supabase
+      .from("study_groups")
+      .select("*, group_members(user_id)")
+      .order("created_at", { ascending: false });
+    if (error) { toast.error(error.message); setLoading(false); return; }
+    const enriched: Group[] = (gs ?? []).map((g: any) => ({
+      ...g,
+      member_count: g.group_members?.length ?? 0,
+      is_member: g.group_members?.some((m: any) => m.user_id === user?.id) ?? false,
+    }));
+    setGroups(enriched);
+    setLoading(false);
+  };
+
+  useEffect(() => { if (user) load(); }, [user]);
+
+  const handleCreate = async () => {
+    if (!form.name || !form.subject) { toast.error("Name and subject required"); return; }
+    setCreating(true);
+    const tags = form.tags.split(",").map(t => t.trim()).filter(Boolean);
+    const { data, error } = await supabase.from("study_groups").insert({
+      owner_id: user!.id, name: form.name, subject: form.subject,
+      description: form.description, tags, max_members: form.max_members,
+    }).select().single();
+    setCreating(false);
+    if (error) { toast.error(error.message); return; }
+    toast.success("Group created!");
+    setOpen(false);
+    setForm({ name: "", subject: "", description: "", tags: "", max_members: 20 });
+    if (data) navigate(`/dashboard/study-groups/${data.id}`);
+  };
+
+  const handleJoin = async (g: Group) => {
+    const { error } = await supabase.from("group_members").insert({ group_id: g.id, user_id: user!.id });
+    if (error) { toast.error(error.message); return; }
+    toast.success("Joined group!");
+    navigate(`/dashboard/study-groups/${g.id}`);
+  };
+
+  const filtered = groups.filter(g =>
+    g.name.toLowerCase().includes(search.toLowerCase()) ||
+    g.subject.toLowerCase().includes(search.toLowerCase())
+  );
 
   return (
     <div className="space-y-6 animate-fade-in">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold text-foreground">Study Groups</h1>
           <p className="text-muted-foreground">Find or create study groups for your courses.</p>
         </div>
-        <Button><Plus className="w-4 h-4 mr-2" />Create Group</Button>
+        <Dialog open={open} onOpenChange={setOpen}>
+          <DialogTrigger asChild>
+            <Button><Plus className="w-4 h-4 mr-2" />Create Group</Button>
+          </DialogTrigger>
+          <DialogContent>
+            <DialogHeader><DialogTitle>Create a Study Group</DialogTitle></DialogHeader>
+            <div className="space-y-3">
+              <div><Label>Name</Label><Input value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} placeholder="e.g. DSA Weekly Practice" /></div>
+              <div><Label>Subject / Course Code</Label><Input value={form.subject} onChange={e => setForm({ ...form, subject: e.target.value })} placeholder="e.g. CS201" /></div>
+              <div><Label>Description</Label><Textarea value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} rows={3} /></div>
+              <div><Label>Tags (comma separated)</Label><Input value={form.tags} onChange={e => setForm({ ...form, tags: e.target.value })} placeholder="Computer Science, Coding" /></div>
+              <div><Label>Max Members</Label><Input type="number" value={form.max_members} onChange={e => setForm({ ...form, max_members: parseInt(e.target.value) || 20 })} min={2} max={100} /></div>
+            </div>
+            <DialogFooter>
+              <Button onClick={handleCreate} disabled={creating}>{creating ? "Creating…" : "Create Group"}</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
 
       <div className="relative max-w-md">
@@ -33,30 +108,49 @@ const StudyGroups = () => {
         <Input placeholder="Search groups or subjects..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-10" />
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {filtered.map((group) => (
-          <Card key={group.id} className="hover:shadow-md transition-shadow cursor-pointer">
-            <CardContent className="pt-6">
-              <div className="space-y-3">
-                <div>
-                  <h3 className="font-semibold text-foreground">{group.name}</h3>
-                  <p className="text-sm text-muted-foreground">{group.subject}</p>
-                </div>
-                <p className="text-sm text-muted-foreground">{group.description}</p>
-                <div className="flex flex-wrap gap-1">
-                  {group.tags.map(tag => <Badge key={tag} variant="secondary" className="text-xs">{tag}</Badge>)}
-                </div>
-                <div className="flex items-center justify-between pt-2 border-t">
-                  <div className="flex items-center gap-1 text-sm text-muted-foreground">
-                    <Users className="w-3 h-3" /> {group.members}/{group.maxMembers}
+      {loading ? (
+        <div className="text-center py-12 text-muted-foreground">Loading groups…</div>
+      ) : filtered.length === 0 ? (
+        <Card><CardContent className="py-12 text-center text-muted-foreground">
+          No groups yet. Create the first one!
+        </CardContent></Card>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {filtered.map((group) => (
+            <Card key={group.id} className="hover:shadow-md transition-shadow flex flex-col">
+              <CardContent className="pt-6 flex-1 flex flex-col">
+                <div className="space-y-3 flex-1">
+                  <div>
+                    <h3 className="font-semibold text-foreground line-clamp-1">{group.name}</h3>
+                    <p className="text-sm text-muted-foreground">{group.subject}</p>
                   </div>
-                  <Button size="sm" variant="outline">Join</Button>
+                  {group.description && <p className="text-sm text-muted-foreground line-clamp-2">{group.description}</p>}
+                  {group.tags && group.tags.length > 0 && (
+                    <div className="flex flex-wrap gap-1">
+                      {group.tags.map(tag => <Badge key={tag} variant="secondary" className="text-xs">{tag}</Badge>)}
+                    </div>
+                  )}
                 </div>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
+                <div className="flex items-center justify-between pt-3 mt-3 border-t">
+                  <div className="flex items-center gap-1 text-sm text-muted-foreground">
+                    <Users className="w-3 h-3" /> {group.member_count}/{group.max_members}
+                  </div>
+                  {group.is_member ? (
+                    <Button size="sm" onClick={() => navigate(`/dashboard/study-groups/${group.id}`)}>
+                      <MessageCircle className="w-3 h-3 mr-1" />Open Chat
+                    </Button>
+                  ) : (
+                    <Button size="sm" variant="outline" onClick={() => handleJoin(group)}
+                      disabled={(group.member_count ?? 0) >= group.max_members}>
+                      Join
+                    </Button>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
     </div>
   );
 };
