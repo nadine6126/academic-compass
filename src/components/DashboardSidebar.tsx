@@ -3,13 +3,13 @@ import {
   Calendar, CalendarDays, GraduationCap, Settings, LogOut
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
-import { useLocation, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import {
   Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent,
   SidebarGroupLabel, SidebarMenu, SidebarMenuButton, SidebarMenuItem,
   SidebarFooter, useSidebar,
 } from "@/components/ui/sidebar";
-import { Button } from "@/components/ui/button";
+import { useAuth } from "@/hooks/useAuth";
 
 const mainItems = [
   { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
@@ -28,6 +28,9 @@ export function DashboardSidebar() {
   const { state } = useSidebar();
   const collapsed = state === "collapsed";
   const navigate = useNavigate();
+  const { signOut } = useAuth();
+
+  const handleSignOut = async () => { await signOut(); navigate("/login"); };
 
   return (
     <Sidebar collapsible="icon">
@@ -68,7 +71,7 @@ export function DashboardSidebar() {
             </SidebarMenuItem>
           ))}
           <SidebarMenuItem>
-            <SidebarMenuButton onClick={() => navigate("/login")} className="hover:bg-destructive/10 text-muted-foreground hover:text-destructive">
+            <SidebarMenuButton onClick={handleSignOut} className="hover:bg-destructive/10 text-muted-foreground hover:text-destructive">
               <LogOut className="mr-2 h-4 w-4" />
               {!collapsed && <span>Sign Out</span>}
             </SidebarMenuButton>
