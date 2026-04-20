@@ -1,6 +1,6 @@
 import {
   LayoutDashboard, Users, MessageCircle, HelpCircle,
-  Calendar, CalendarDays, GraduationCap, Settings, LogOut
+  Calendar, CalendarDays, GraduationCap, Settings, LogOut, Shield
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useNavigate } from "react-router-dom";
@@ -10,6 +10,7 @@ import {
   SidebarFooter, useSidebar,
 } from "@/components/ui/sidebar";
 import { useAuth } from "@/hooks/useAuth";
+import { useUserRole } from "@/hooks/useUserRole";
 
 const mainItems = [
   { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
@@ -29,6 +30,7 @@ export function DashboardSidebar() {
   const collapsed = state === "collapsed";
   const navigate = useNavigate();
   const { signOut } = useAuth();
+  const { isAdmin } = useUserRole();
 
   const handleSignOut = async () => { await signOut(); navigate("/login"); };
 
@@ -54,6 +56,16 @@ export function DashboardSidebar() {
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               ))}
+              {isAdmin && (
+                <SidebarMenuItem>
+                  <SidebarMenuButton asChild>
+                    <NavLink to="/dashboard/admin" end className="hover:bg-accent" activeClassName="bg-accent text-primary font-medium">
+                      <Shield className="mr-2 h-4 w-4" />
+                      {!collapsed && <span>Admin</span>}
+                    </NavLink>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              )}
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>

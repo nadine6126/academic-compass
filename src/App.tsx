@@ -16,6 +16,7 @@ import QAForum from "./pages/QAForum";
 import EventsPage from "./pages/EventsPage";
 import CalendarPage from "./pages/CalendarPage";
 import ProfilePage from "./pages/ProfilePage";
+import AdminDashboard from "./pages/AdminDashboard";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -39,6 +40,7 @@ const App = () => (
               <Route path="events" element={<EventsPage />} />
               <Route path="calendar" element={<CalendarPage />} />
               <Route path="profile" element={<ProfilePage />} />
+              <Route path="admin" element={<AdminDashboard />} />
             </Route>
             <Route path="*" element={<NotFound />} />
           </Routes>
