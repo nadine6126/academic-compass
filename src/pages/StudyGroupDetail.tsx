@@ -5,7 +5,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -29,7 +28,8 @@ const StudyGroupDetail = () => {
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const scrollDown = () => setTimeout(() => {
-    scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
+    const el = scrollRef.current;
+    if (el) el.scrollTop = el.scrollHeight;
   }, 50);
 
   const loadAll = async () => {
@@ -37,13 +37,11 @@ const StudyGroupDetail = () => {
     const { data: g } = await supabase.from("study_groups").select("*").eq("id", id).maybeSingle();
     setGroup(g);
 
-    const { data: ms } = await supabase
-      .from("group_members").select("user_id").eq("group_id", id);
+    const { data: ms } = await supabase.from("group_members").select("user_id").eq("group_id", id);
     const memberIds = (ms ?? []).map(m => m.user_id);
 
     if (memberIds.length) {
-      const { data: profs } = await supabase
-        .from("profiles").select("user_id, display_name").in("user_id", memberIds);
+      const { data: profs } = await supabase.from("profiles").select("user_id, display_name").in("user_id", memberIds);
       const map: Record<string, string> = {};
       (profs ?? []).forEach(p => { map[p.user_id] = p.display_name; });
       setProfileMap(map);
@@ -59,7 +57,6 @@ const StudyGroupDetail = () => {
 
   useEffect(() => { if (user && id) loadAll(); }, [user, id]);
 
-  // realtime subscription
   useEffect(() => {
     if (!id) return;
     const ch = supabase
@@ -78,7 +75,7 @@ const StudyGroupDetail = () => {
         () => loadAll())
       .subscribe();
     return () => { supabase.removeChannel(ch); };
-  }, [id, profileMap]);
+  }, [id]);
 
   const send = async () => {
     if (!text.trim() || !id || !user) return;
@@ -102,14 +99,14 @@ const StudyGroupDetail = () => {
 
   return (
     <div className="animate-fade-in flex flex-col h-[calc(100vh-7rem)]">
-      <div className="flex items-center justify-between mb-4">
-        <div className="flex items-center gap-3">
+      <div className="flex items-center justify-between mb-4 shrink-0">
+        <div className="flex items-center gap-3 min-w-0">
           <Button variant="ghost" size="icon" onClick={() => navigate("/dashboard/study-groups")}>
             <ArrowLeft className="w-4 h-4" />
           </Button>
-          <div>
-            <h1 className="text-xl font-bold text-foreground">{group.name}</h1>
-            <p className="text-sm text-muted-foreground">{group.subject} · {members.length} members</p>
+          <div className="min-w-0">
+            <h1 className="text-xl font-bold text-foreground truncate">{group.name}</h1>
+            <p className="text-sm text-muted-foreground truncate">{group.subject} · {members.length} members</p>
           </div>
         </div>
         {group.owner_id !== user?.id && (
@@ -120,47 +117,41 @@ const StudyGroupDetail = () => {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-[1fr_260px] gap-4 flex-1 min-h-0">
-        {/* Chat */}
-        <Card className="flex flex-col min-h-0">
-          <CardContent className="p-0 flex flex-col flex-1 min-h-0">
-            <ScrollArea className="flex-1 p-4" ref={scrollRef as any}>
-              <div ref={scrollRef} className="space-y-3 max-h-full overflow-y-auto">
-                {messages.length === 0 && (
-                  <p className="text-center text-sm text-muted-foreground py-8">No messages yet. Say hi 👋</p>
-                )}
-                {messages.map(m => {
-                  const mine = m.user_id === user?.id;
-                  const name = profileMap[m.user_id] ?? "Member";
-                  return (
-                    <div key={m.id} className={`flex gap-2 ${mine ? "justify-end" : "justify-start"}`}>
-                      {!mine && (
-                        <Avatar className="w-8 h-8 shrink-0">
-                          <AvatarFallback className="text-xs bg-secondary">{initials(name)}</AvatarFallback>
-                        </Avatar>
-                      )}
-                      <div className={`max-w-[75%] rounded-2xl px-3 py-2 ${mine ? "bg-primary text-primary-foreground rounded-br-sm" : "bg-secondary text-foreground rounded-bl-sm"}`}>
-                        {!mine && <p className="text-xs font-medium mb-0.5 opacity-80">{name}</p>}
-                        <p className="text-sm whitespace-pre-wrap break-words">{m.content}</p>
-                        <p className={`text-[10px] mt-1 ${mine ? "text-primary-foreground/70" : "text-muted-foreground"}`}>
-                          {new Date(m.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-                        </p>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </ScrollArea>
-            <div className="border-t p-3 flex gap-2">
-              <Input value={text} onChange={e => setText(e.target.value)}
-                onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); } }}
-                placeholder="Type a message…" disabled={sending} />
-              <Button onClick={send} disabled={sending || !text.trim()} size="icon"><Send className="w-4 h-4" /></Button>
-            </div>
-          </CardContent>
+        <Card className="flex flex-col min-h-0 overflow-hidden">
+          <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 space-y-3">
+            {messages.length === 0 && (
+              <p className="text-center text-sm text-muted-foreground py-8">No messages yet. Say hi 👋</p>
+            )}
+            {messages.map(m => {
+              const mine = m.user_id === user?.id;
+              const name = profileMap[m.user_id] ?? "Member";
+              return (
+                <div key={m.id} className={`flex gap-2 ${mine ? "justify-end" : "justify-start"}`}>
+                  {!mine && (
+                    <Avatar className="w-8 h-8 shrink-0">
+                      <AvatarFallback className="text-xs bg-secondary">{initials(name)}</AvatarFallback>
+                    </Avatar>
+                  )}
+                  <div className={`max-w-[75%] rounded-2xl px-3 py-2 ${mine ? "bg-primary text-primary-foreground rounded-br-sm" : "bg-secondary text-foreground rounded-bl-sm"}`}>
+                    {!mine && <p className="text-xs font-medium mb-0.5 opacity-80">{name}</p>}
+                    <p className="text-sm whitespace-pre-wrap break-words">{m.content}</p>
+                    <p className={`text-[10px] mt-1 ${mine ? "text-primary-foreground/70" : "text-muted-foreground"}`}>
+                      {new Date(m.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                    </p>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+          <div className="border-t p-3 flex gap-2 shrink-0 bg-card">
+            <Input value={text} onChange={e => setText(e.target.value)}
+              onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); } }}
+              placeholder="Type a message…" disabled={sending} />
+            <Button onClick={send} disabled={sending || !text.trim()} size="icon"><Send className="w-4 h-4" /></Button>
+          </div>
         </Card>
 
-        {/* Sidebar: members + info */}
-        <div className="space-y-4">
+        <div className="space-y-4 overflow-y-auto">
           {group.description && (
             <Card>
               <CardHeader className="pb-2"><CardTitle className="text-sm">About</CardTitle></CardHeader>

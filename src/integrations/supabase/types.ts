@@ -14,6 +14,152 @@ export type Database = {
   }
   public: {
     Tables: {
+      calendar_events: {
+        Row: {
+          created_at: string
+          description: string | null
+          event_date: string
+          event_time: string | null
+          event_type: string
+          id: string
+          reminded: boolean
+          reminder_minutes: number | null
+          title: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          event_date: string
+          event_time?: string | null
+          event_type?: string
+          id?: string
+          reminded?: boolean
+          reminder_minutes?: number | null
+          title: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          event_date?: string
+          event_time?: string | null
+          event_type?: string
+          id?: string
+          reminded?: boolean
+          reminder_minutes?: number | null
+          title?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      community_posts: {
+        Row: {
+          content: string
+          created_at: string
+          id: string
+          likes: number
+          topic: string | null
+          user_id: string
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          id?: string
+          likes?: number
+          topic?: string | null
+          user_id: string
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          id?: string
+          likes?: number
+          topic?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      event_rsvps: {
+        Row: {
+          created_at: string
+          event_id: string
+          id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          event_id: string
+          id?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          event_id?: string
+          id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "event_rsvps_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      events: {
+        Row: {
+          created_at: string
+          description: string | null
+          event_date: string
+          event_time: string | null
+          event_type: string | null
+          id: string
+          is_free: boolean
+          location: string | null
+          max_attendees: number | null
+          organizer_id: string
+          status: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          event_date: string
+          event_time?: string | null
+          event_type?: string | null
+          id?: string
+          is_free?: boolean
+          location?: string | null
+          max_attendees?: number | null
+          organizer_id: string
+          status?: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          event_date?: string
+          event_time?: string | null
+          event_type?: string | null
+          id?: string
+          is_free?: boolean
+          location?: string | null
+          max_attendees?: number | null
+          organizer_id?: string
+          status?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       group_members: {
         Row: {
           group_id: string
@@ -81,7 +227,9 @@ export type Database = {
           bio: string | null
           created_at: string
           display_name: string
+          email: string | null
           id: string
+          student_id: string | null
           updated_at: string
           user_id: string
         }
@@ -90,7 +238,9 @@ export type Database = {
           bio?: string | null
           created_at?: string
           display_name?: string
+          email?: string | null
           id?: string
+          student_id?: string | null
           updated_at?: string
           user_id: string
         }
@@ -99,7 +249,9 @@ export type Database = {
           bio?: string | null
           created_at?: string
           display_name?: string
+          email?: string | null
           id?: string
+          student_id?: string | null
           updated_at?: string
           user_id?: string
         }
