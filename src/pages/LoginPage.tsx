@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { GraduationCap, Mail, Lock, Eye, EyeOff, User, IdCard } from "lucide-react";
+import { GraduationCap, Mail, Lock, Eye, EyeOff, User, IdCard, Shield } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
@@ -11,8 +11,11 @@ import { toast } from "sonner";
 const STUDENT_DOMAIN = "@student.president.ac.id";
 const ADMIN_DOMAIN = "@admin.president.ac.id";
 
+type Role = "student" | "admin";
+
 const LoginPage = () => {
   const [isLogin, setIsLogin] = useState(true);
+  const [role, setRole] = useState<Role>("student");
   const [showPassword, setShowPassword] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -24,15 +27,14 @@ const LoginPage = () => {
 
   useEffect(() => { if (session) navigate("/dashboard", { replace: true }); }, [session, navigate]);
 
-  const isAdminEmail = email.toLowerCase().endsWith(ADMIN_DOMAIN);
-  const isStudentEmail = email.toLowerCase().endsWith(STUDENT_DOMAIN);
+  const expectedDomain = role === "admin" ? ADMIN_DOMAIN : STUDENT_DOMAIN;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const lcEmail = email.toLowerCase().trim();
 
-    if (!lcEmail.endsWith(STUDENT_DOMAIN) && !lcEmail.endsWith(ADMIN_DOMAIN)) {
-      toast.error(`Email harus berakhiran ${STUDENT_DOMAIN} atau ${ADMIN_DOMAIN}`);
+    if (!lcEmail.endsWith(expectedDomain)) {
+      toast.error(`${role === "admin" ? "Admin" : "Student"} email must end with ${expectedDomain}`);
       return;
     }
 
@@ -44,14 +46,13 @@ const LoginPage = () => {
         toast.success("Welcome back!");
         navigate("/dashboard");
       } else {
-        // Validation register
-        if (lcEmail.endsWith(STUDENT_DOMAIN)) {
+        if (role === "student") {
           if (!/^\d{12}$/.test(studentId)) {
-            toast.error("Student ID harus 12 digit angka");
+            toast.error("Student ID must be 12 digits");
             setBusy(false); return;
           }
         }
-        if (!name.trim()) { toast.error("Nama wajib diisi"); setBusy(false); return; }
+        if (!name.trim()) { toast.error("Full name is required"); setBusy(false); return; }
 
         const { error } = await supabase.auth.signUp({
           email: lcEmail,
@@ -60,14 +61,13 @@ const LoginPage = () => {
             emailRedirectTo: `${window.location.origin}/dashboard`,
             data: {
               display_name: name.trim(),
-              student_id: lcEmail.endsWith(STUDENT_DOMAIN) ? studentId : null,
+              student_id: role === "student" ? studentId : null,
             },
           },
         });
         if (error) throw error;
-        // Sign out (we want them to login manually)
         await supabase.auth.signOut();
-        toast.success("Akun berhasil dibuat. Silakan login.");
+        toast.success("Account created. Please sign in.");
         setIsLogin(true);
         setPassword("");
       }
@@ -90,7 +90,7 @@ const LoginPage = () => {
         </div>
 
         <Card className="shadow-lg border-border/50">
-          <CardHeader className="pb-4">
+          <CardHeader className="pb-4 space-y-3">
             <div className="flex rounded-lg bg-secondary p-1">
               <button type="button" onClick={() => setIsLogin(true)}
                 className={`flex-1 py-2 text-sm font-medium rounded-md transition-all ${isLogin ? "bg-card text-foreground shadow-sm" : "text-muted-foreground"}`}>
@@ -99,6 +99,16 @@ const LoginPage = () => {
               <button type="button" onClick={() => setIsLogin(false)}
                 className={`flex-1 py-2 text-sm font-medium rounded-md transition-all ${!isLogin ? "bg-card text-foreground shadow-sm" : "text-muted-foreground"}`}>
                 Register
+              </button>
+            </div>
+            <div className="flex rounded-lg border bg-background p-1">
+              <button type="button" onClick={() => setRole("student")}
+                className={`flex-1 py-1.5 text-xs font-medium rounded-md transition-all flex items-center justify-center gap-1.5 ${role === "student" ? "bg-primary text-primary-foreground" : "text-muted-foreground"}`}>
+                <User className="w-3 h-3" /> Student
+              </button>
+              <button type="button" onClick={() => setRole("admin")}
+                className={`flex-1 py-1.5 text-xs font-medium rounded-md transition-all flex items-center justify-center gap-1.5 ${role === "admin" ? "bg-primary text-primary-foreground" : "text-muted-foreground"}`}>
+                <Shield className="w-3 h-3" /> Admin
               </button>
             </div>
           </CardHeader>
@@ -110,7 +120,7 @@ const LoginPage = () => {
                     <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                     <Input placeholder="Full Name" value={name} onChange={(e) => setName(e.target.value)} className="pl-10" required />
                   </div>
-                  {isStudentEmail && (
+                  {role === "student" && (
                     <div className="relative">
                       <IdCard className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                       <Input placeholder="Student ID (12 digits)" value={studentId}
@@ -122,14 +132,8 @@ const LoginPage = () => {
               )}
               <div className="relative">
                 <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                <Input type="email" placeholder={`name${STUDENT_DOMAIN}`} value={email} onChange={(e) => setEmail(e.target.value)} className="pl-10" required />
+                <Input type="email" placeholder={`name${expectedDomain}`} value={email} onChange={(e) => setEmail(e.target.value)} className="pl-10" required />
               </div>
-              {!isLogin && email && !isStudentEmail && !isAdminEmail && (
-                <p className="text-xs text-destructive">Email harus berakhiran {STUDENT_DOMAIN} atau {ADMIN_DOMAIN}</p>
-              )}
-              {!isLogin && isAdminEmail && (
-                <p className="text-xs text-primary">✓ Email admin terdeteksi — akan didaftarkan sebagai admin.</p>
-              )}
               <div className="relative">
                 <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                 <Input type={showPassword ? "text" : "password"} placeholder="Password (min 6 chars)"
@@ -141,14 +145,9 @@ const LoginPage = () => {
               </div>
 
               <Button type="submit" className="w-full" disabled={busy}>
-                {busy ? "Please wait…" : isLogin ? "Sign In" : "Create Account"}
+                {busy ? "Please wait…" : isLogin ? `Sign In as ${role === "admin" ? "Admin" : "Student"}` : `Register as ${role === "admin" ? "Admin" : "Student"}`}
               </Button>
             </form>
-
-            <div className="mt-6 rounded-lg bg-muted/50 p-3 text-xs text-muted-foreground space-y-1">
-              <p><strong className="text-foreground">Student:</strong> daftar dengan email {STUDENT_DOMAIN}</p>
-              <p><strong className="text-foreground">Admin:</strong> daftar dengan email {ADMIN_DOMAIN}</p>
-            </div>
           </CardContent>
         </Card>
 

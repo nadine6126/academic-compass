@@ -2,8 +2,7 @@ import { Outlet } from "react-router-dom";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { DashboardSidebar } from "@/components/DashboardSidebar";
 import { AIChatbot } from "@/components/AIChatbot";
-import { Bell } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { NotificationBell } from "@/components/NotificationBell";
 import { useAuth } from "@/hooks/useAuth";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
@@ -28,10 +27,7 @@ const DashboardLayout = () => {
           <header className="h-14 flex items-center justify-between border-b bg-card px-4 sticky top-0 z-30">
             <SidebarTrigger />
             <div className="flex items-center gap-2">
-              <Button variant="ghost" size="icon" className="relative">
-                <Bell className="h-4 w-4" />
-                <span className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-destructive rounded-full" />
-              </Button>
+              <NotificationBell />
               <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center text-primary-foreground text-xs font-medium">
                 {initials(name)}
               </div>

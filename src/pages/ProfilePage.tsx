@@ -5,24 +5,17 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
-import { Palette } from "lucide-react";
+import { Palette, Sun, Moon } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useUserRole } from "@/hooks/useUserRole";
+import { useTheme, ACCENTS, Accent } from "@/hooks/useTheme";
 import { toast } from "sonner";
-
-const THEME_PRESETS = [
-  { name: "Default Blue", primary: "221.2 83.2% 53.3%" },
-  { name: "Emerald", primary: "160 84% 39%" },
-  { name: "Rose", primary: "346 77% 49%" },
-  { name: "Violet", primary: "262 83% 58%" },
-  { name: "Orange", primary: "24 95% 53%" },
-  { name: "Slate", primary: "215 28% 17%" },
-];
 
 const ProfilePage = () => {
   const { user } = useAuth();
   const { roles } = useUserRole();
+  const { mode, accent, setMode, setAccent, resetToDefault } = useTheme();
   const [profile, setProfile] = useState<any>(null);
   const [form, setForm] = useState({ display_name: "", bio: "" });
   const [saving, setSaving] = useState(false);
@@ -34,8 +27,6 @@ const ProfilePage = () => {
         setProfile(data);
         setForm({ display_name: data?.display_name ?? "", bio: data?.bio ?? "" });
       });
-    const saved = localStorage.getItem("theme_primary");
-    if (saved) document.documentElement.style.setProperty("--primary", saved);
   }, [user]);
 
   const save = async () => {
@@ -48,19 +39,13 @@ const ProfilePage = () => {
     toast.success("Profile updated");
   };
 
-  const applyTheme = (primary: string) => {
-    document.documentElement.style.setProperty("--primary", primary);
-    localStorage.setItem("theme_primary", primary);
-    toast.success("Theme applied");
-  };
-
   const initials = (form.display_name || "?").split(" ").map(p => p[0]).join("").slice(0, 2).toUpperCase();
 
   return (
     <div className="space-y-6 animate-fade-in max-w-2xl">
       <div>
         <h1 className="text-2xl font-bold text-foreground">Profile</h1>
-        <p className="text-muted-foreground text-sm">Kelola akun & personalisasi tampilan kamu.</p>
+        <p className="text-muted-foreground text-sm">Manage your account and personalize your experience.</p>
       </div>
 
       <Card>
@@ -86,18 +71,39 @@ const ProfilePage = () => {
       </Card>
 
       <Card>
-        <CardHeader><CardTitle className="text-lg flex items-center gap-2"><Palette className="w-4 h-4" />Theme Customization</CardTitle></CardHeader>
-        <CardContent>
-          <p className="text-sm text-muted-foreground mb-3">Pilih warna utama untuk tampilan kamu.</p>
-          <div className="grid grid-cols-3 sm:grid-cols-6 gap-3">
-            {THEME_PRESETS.map(t => (
-              <button key={t.name} onClick={() => applyTheme(t.primary)}
-                className="flex flex-col items-center gap-1 p-2 rounded-lg hover:bg-muted transition-colors">
-                <div className="w-10 h-10 rounded-full border-2 border-border" style={{ backgroundColor: `hsl(${t.primary})` }} />
-                <span className="text-[10px] text-muted-foreground text-center">{t.name}</span>
-              </button>
-            ))}
+        <CardHeader><CardTitle className="text-lg flex items-center gap-2"><Palette className="w-4 h-4" />Appearance</CardTitle></CardHeader>
+        <CardContent className="space-y-5">
+          <div>
+            <Label className="text-sm">Mode</Label>
+            <div className="grid grid-cols-2 gap-2 mt-2 max-w-xs">
+              <Button variant={mode === "light" ? "default" : "outline"} onClick={() => setMode("light")} className="gap-2">
+                <Sun className="w-4 h-4" /> Light
+              </Button>
+              <Button variant={mode === "dark" ? "default" : "outline"} onClick={() => setMode("dark")} className="gap-2">
+                <Moon className="w-4 h-4" /> Dark
+              </Button>
+            </div>
           </div>
+
+          <div>
+            <Label className="text-sm">Accent Color</Label>
+            <div className="grid grid-cols-4 gap-3 mt-2 max-w-md">
+              {(Object.keys(ACCENTS) as Accent[]).map(key => {
+                const a = ACCENTS[key];
+                const value = mode === "dark" ? a.dark : a.light;
+                const selected = accent === key;
+                return (
+                  <button key={key} onClick={() => setAccent(key)}
+                    className={`flex flex-col items-center gap-1.5 p-2 rounded-lg border-2 transition-all ${selected ? "border-primary bg-accent" : "border-transparent hover:bg-muted"}`}>
+                    <div className="w-10 h-10 rounded-full border-2 border-border" style={{ backgroundColor: `hsl(${value})` }} />
+                    <span className="text-[11px] text-foreground text-center">{a.name}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          <Button variant="ghost" size="sm" onClick={resetToDefault}>Reset to default</Button>
         </CardContent>
       </Card>
     </div>

@@ -1,6 +1,6 @@
 import {
   LayoutDashboard, Users, MessageCircle, HelpCircle,
-  Calendar, CalendarDays, GraduationCap, Settings, LogOut, Shield
+  Calendar, CalendarDays, GraduationCap, Settings, LogOut, Shield, Sparkles
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useNavigate } from "react-router-dom";
@@ -19,6 +19,7 @@ const mainItems = [
   { title: "Q&A Forum", url: "/dashboard/qa", icon: HelpCircle },
   { title: "Events", url: "/dashboard/events", icon: Calendar },
   { title: "Calendar", url: "/dashboard/calendar", icon: CalendarDays },
+  { title: "AI Summary", url: "/dashboard/ai-summary", icon: Sparkles },
 ];
 
 const bottomItems = [
