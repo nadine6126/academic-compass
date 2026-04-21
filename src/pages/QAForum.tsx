@@ -2,8 +2,7 @@ import { useEffect, useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
-import { MessageSquare, Sparkles, Loader2, Send } from "lucide-react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { MessageSquare, Send } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
@@ -26,11 +25,6 @@ const QAForum = () => {
   const [loading, setLoading] = useState(true);
   const [text, setText] = useState("");
   const [posting, setPosting] = useState(false);
-
-  const [summaryOpen, setSummaryOpen] = useState(false);
-  const [summaryData, setSummaryData] = useState<any>(null);
-  const [summaryLoading, setSummaryLoading] = useState(false);
-
   const { user } = useAuth();
 
   const load = async () => {
@@ -48,9 +42,7 @@ const QAForum = () => {
     (replies ?? []).forEach((r: any) => { counts[r.thread_id] = (counts[r.thread_id] ?? 0) + 1; });
 
     setThreads((ts ?? []).map((t: any) => ({
-      ...t,
-      reply_count: counts[t.id] ?? 0,
-      author_name: map[t.user_id] ?? "Student",
+      ...t, reply_count: counts[t.id] ?? 0, author_name: map[t.user_id] ?? "Student",
     })));
     setLoading(false);
   };
@@ -60,9 +52,8 @@ const QAForum = () => {
   const handlePost = async () => {
     const content = text.trim();
     if (!content) return;
-    if (content.length > 500) { toast.error("Maksimal 500 karakter"); return; }
+    if (content.length > 500) { toast.error("Maximum 500 characters"); return; }
     setPosting(true);
-    // Use first 80 chars as title for compatibility with existing schema
     const title = content.slice(0, 80);
     const { error } = await supabase.from("qa_threads").insert({
       user_id: user!.id, title, body: content, tags: [], is_anonymous: anonymous,
@@ -70,42 +61,21 @@ const QAForum = () => {
     setPosting(false);
     if (error) { toast.error(error.message); return; }
     toast.success("Posted!");
-    setText("");
-    load();
-  };
-
-  const summarize = async (t: Thread) => {
-    setSummaryOpen(true); setSummaryData(null); setSummaryLoading(true);
-    try {
-      const { data: replies } = await supabase.from("qa_replies").select("body").eq("thread_id", t.id).order("created_at");
-      const text = `Question: ${t.body}\n\nReplies:\n${(replies ?? []).map((r, i) => `${i + 1}. ${r.body}`).join("\n")}`;
-      const { data, error } = await supabase.functions.invoke("ai-summary", { body: { text } });
-      if (error) throw error;
-      setSummaryData(data);
-    } catch (e: any) {
-      toast.error(e.message ?? "Summary failed");
-      setSummaryOpen(false);
-    } finally { setSummaryLoading(false); }
+    setText(""); load();
   };
 
   return (
     <div className="space-y-6 animate-fade-in max-w-2xl mx-auto">
       <div>
         <h1 className="text-2xl font-bold text-foreground">Q&A Forum</h1>
-        <p className="text-muted-foreground text-sm">Tanya apapun seperti ngetweet — singkat & langsung.</p>
+        <p className="text-muted-foreground text-sm">Ask anything — short and direct, like a tweet.</p>
       </div>
 
-      {/* Compose */}
       <Card>
         <CardContent className="pt-4 space-y-3">
-          <Textarea
-            value={text}
-            onChange={(e) => setText(e.target.value)}
-            placeholder="Apa pertanyaanmu? (max 500 karakter)"
-            rows={3}
-            maxLength={500}
-            className="resize-none border-0 focus-visible:ring-0 px-0 text-base"
-          />
+          <Textarea value={text} onChange={(e) => setText(e.target.value)}
+            placeholder="What's your question? (max 500 characters)" rows={3} maxLength={500}
+            className="resize-none border-0 focus-visible:ring-0 px-0 text-base" />
           <div className="flex items-center justify-between border-t pt-3">
             <div className="flex items-center gap-2">
               <Switch checked={anonymous} onCheckedChange={setAnonymous} id="anon" />
@@ -123,7 +93,7 @@ const QAForum = () => {
         <div className="text-center py-12 text-muted-foreground">Loading…</div>
       ) : threads.length === 0 ? (
         <Card><CardContent className="py-12 text-center text-muted-foreground">
-          Belum ada pertanyaan. Jadilah yang pertama!
+          No questions yet. Be the first to ask!
         </CardContent></Card>
       ) : (
         <div className="space-y-3">
@@ -145,9 +115,6 @@ const QAForum = () => {
                       <p className="text-sm text-foreground whitespace-pre-wrap break-words">{t.body}</p>
                       <div className="flex items-center gap-3 text-xs text-muted-foreground">
                         <span className="flex items-center gap-1"><MessageSquare className="w-3 h-3" />{t.reply_count} replies</span>
-                        <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => summarize(t)}>
-                          <Sparkles className="w-3 h-3 mr-1" />AI Summary
-                        </Button>
                       </div>
                     </div>
                   </div>
@@ -157,39 +124,6 @@ const QAForum = () => {
           })}
         </div>
       )}
-
-      <Dialog open={summaryOpen} onOpenChange={setSummaryOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2"><Sparkles className="w-4 h-4 text-primary" />AI Summary</DialogTitle>
-          </DialogHeader>
-          {summaryLoading ? (
-            <div className="py-8 flex items-center justify-center text-muted-foreground">
-              <Loader2 className="w-5 h-5 animate-spin mr-2" />Generating summary…
-            </div>
-          ) : summaryData ? (
-            <div className="space-y-4">
-              <p className="text-sm text-foreground">{summaryData.summary}</p>
-              {summaryData.topics?.length > 0 && (
-                <div>
-                  <p className="text-xs font-semibold text-muted-foreground uppercase mb-1">Topics</p>
-                  <div className="flex flex-wrap gap-1">
-                    {summaryData.topics.map((tp: string) => <Badge key={tp} variant="secondary">{tp}</Badge>)}
-                  </div>
-                </div>
-              )}
-              {summaryData.key_points?.length > 0 && (
-                <div>
-                  <p className="text-xs font-semibold text-muted-foreground uppercase mb-1">Key Points</p>
-                  <ul className="text-sm text-foreground list-disc pl-5 space-y-1">
-                    {summaryData.key_points.map((k: string, i: number) => <li key={i}>{k}</li>)}
-                  </ul>
-                </div>
-              )}
-            </div>
-          ) : null}
-        </DialogContent>
-      </Dialog>
     </div>
   );
 };
