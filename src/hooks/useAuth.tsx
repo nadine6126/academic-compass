@@ -16,13 +16,22 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Listener FIRST, then getSession (per Supabase best practice)
     const { data: sub } = supabase.auth.onAuthStateChange((_e, s) => setSession(s));
     supabase.auth.getSession().then(({ data }) => { setSession(data.session); setLoading(false); });
     return () => sub.subscription.unsubscribe();
   }, []);
 
-  const signOut = async () => { await supabase.auth.signOut(); };
+  const signOut = async () => {
+    await supabase.auth.signOut();
+    // Reset theme to defaults on logout
+    localStorage.removeItem("theme_mode");
+    localStorage.removeItem("theme_accent");
+    document.documentElement.classList.remove("dark");
+    document.documentElement.style.removeProperty("--primary");
+    document.documentElement.style.removeProperty("--ring");
+    document.documentElement.style.removeProperty("--sidebar-primary");
+    document.documentElement.style.removeProperty("--sidebar-ring");
+  };
 
   return (
     <AuthContext.Provider value={{ session, user: session?.user ?? null, loading, signOut }}>
