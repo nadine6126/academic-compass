@@ -14,42 +14,212 @@ export type Database = {
   }
   public: {
     Tables: {
-      calendar_events: {
+      ai_summaries: {
         Row: {
           created_at: string
+          id: string
+          input_text: string
+          key_points: string[] | null
+          source_name: string | null
+          source_type: string
+          summary_text: string
+          topics: string[] | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          input_text: string
+          key_points?: string[] | null
+          source_name?: string | null
+          source_type?: string
+          summary_text: string
+          topics?: string[] | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          input_text?: string
+          key_points?: string[] | null
+          source_name?: string | null
+          source_type?: string
+          summary_text?: string
+          topics?: string[] | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      answers: {
+        Row: {
+          body: string
+          created_at: string
+          id: string
+          is_accepted: boolean
+          is_anonymous: boolean
+          question_id: string
+          updated_at: string
+          upvotes_count: number
+          user_id: string | null
+        }
+        Insert: {
+          body: string
+          created_at?: string
+          id?: string
+          is_accepted?: boolean
+          is_anonymous?: boolean
+          question_id: string
+          updated_at?: string
+          upvotes_count?: number
+          user_id?: string | null
+        }
+        Update: {
+          body?: string
+          created_at?: string
+          id?: string
+          is_accepted?: boolean
+          is_anonymous?: boolean
+          question_id?: string
+          updated_at?: string
+          upvotes_count?: number
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "answers_question_id_fkey"
+            columns: ["question_id"]
+            isOneToOne: false
+            referencedRelation: "questions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      calendar_events: {
+        Row: {
+          color: string | null
+          created_at: string
           description: string | null
-          event_date: string
-          event_time: string | null
-          event_type: string
+          end_at: string | null
+          event_id: string | null
+          group_id: string | null
           id: string
           reminded: boolean
           reminder_minutes: number | null
+          start_at: string
+          task_id: string | null
+          title: string
+          type: string
+          user_id: string
+        }
+        Insert: {
+          color?: string | null
+          created_at?: string
+          description?: string | null
+          end_at?: string | null
+          event_id?: string | null
+          group_id?: string | null
+          id?: string
+          reminded?: boolean
+          reminder_minutes?: number | null
+          start_at: string
+          task_id?: string | null
+          title: string
+          type?: string
+          user_id: string
+        }
+        Update: {
+          color?: string | null
+          created_at?: string
+          description?: string | null
+          end_at?: string | null
+          event_id?: string | null
+          group_id?: string | null
+          id?: string
+          reminded?: boolean
+          reminder_minutes?: number | null
+          start_at?: string
+          task_id?: string | null
+          title?: string
+          type?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "calendar_events_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "calendar_events_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "study_groups"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "calendar_events_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "tasks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      chatbot_messages: {
+        Row: {
+          content: string
+          created_at: string
+          id: string
+          role: string
+          session_id: string
+          user_id: string
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          id?: string
+          role: string
+          session_id: string
+          user_id: string
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          id?: string
+          role?: string
+          session_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "chatbot_messages_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "chatbot_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      chatbot_sessions: {
+        Row: {
+          id: string
+          started_at: string
           title: string
           updated_at: string
           user_id: string
         }
         Insert: {
-          created_at?: string
-          description?: string | null
-          event_date: string
-          event_time?: string | null
-          event_type?: string
           id?: string
-          reminded?: boolean
-          reminder_minutes?: number | null
-          title: string
+          started_at?: string
+          title?: string
           updated_at?: string
           user_id: string
         }
         Update: {
-          created_at?: string
-          description?: string | null
-          event_date?: string
-          event_time?: string | null
-          event_type?: string
           id?: string
-          reminded?: boolean
-          reminder_minutes?: number | null
+          started_at?: string
           title?: string
           updated_at?: string
           user_id?: string
@@ -58,27 +228,42 @@ export type Database = {
       }
       community_posts: {
         Row: {
-          content: string
+          body: string
+          category: string
+          comments_count: number
           created_at: string
           id: string
-          likes: number
-          topic: string | null
+          image_url: string | null
+          is_pinned: boolean
+          title: string | null
+          updated_at: string
+          upvotes_count: number
           user_id: string
         }
         Insert: {
-          content: string
+          body: string
+          category?: string
+          comments_count?: number
           created_at?: string
           id?: string
-          likes?: number
-          topic?: string | null
+          image_url?: string | null
+          is_pinned?: boolean
+          title?: string | null
+          updated_at?: string
+          upvotes_count?: number
           user_id: string
         }
         Update: {
-          content?: string
+          body?: string
+          category?: string
+          comments_count?: number
           created_at?: string
           id?: string
-          likes?: number
-          topic?: string | null
+          image_url?: string | null
+          is_pinned?: boolean
+          title?: string | null
+          updated_at?: string
+          upvotes_count?: number
           user_id?: string
         }
         Relationships: []
@@ -114,80 +299,63 @@ export type Database = {
       }
       events: {
         Row: {
+          cover_image_url: string | null
           created_at: string
           description: string | null
-          event_date: string
-          event_time: string | null
-          event_type: string | null
+          end_at: string | null
+          event_type: string
+          external_register_url: string | null
           id: string
-          is_free: boolean
-          location: string | null
-          max_attendees: number | null
-          organizer_id: string
+          location_or_link: string | null
+          posted_by: string
+          start_at: string
           status: string
           title: string
-          updated_at: string
         }
         Insert: {
+          cover_image_url?: string | null
           created_at?: string
           description?: string | null
-          event_date: string
-          event_time?: string | null
-          event_type?: string | null
+          end_at?: string | null
+          event_type?: string
+          external_register_url?: string | null
           id?: string
-          is_free?: boolean
-          location?: string | null
-          max_attendees?: number | null
-          organizer_id: string
+          location_or_link?: string | null
+          posted_by: string
+          start_at: string
           status?: string
           title: string
-          updated_at?: string
         }
         Update: {
+          cover_image_url?: string | null
           created_at?: string
           description?: string | null
-          event_date?: string
-          event_time?: string | null
-          event_type?: string | null
+          end_at?: string | null
+          event_type?: string
+          external_register_url?: string | null
           id?: string
-          is_free?: boolean
-          location?: string | null
-          max_attendees?: number | null
-          organizer_id?: string
+          location_or_link?: string | null
+          posted_by?: string
+          start_at?: string
           status?: string
           title?: string
-          updated_at?: string
         }
         Relationships: []
       }
-      group_members: {
+      faculties: {
         Row: {
-          group_id: string
-          id: string
-          joined_at: string
-          user_id: string
+          id: number
+          name: string
         }
         Insert: {
-          group_id: string
-          id?: string
-          joined_at?: string
-          user_id: string
+          id?: number
+          name: string
         }
         Update: {
-          group_id?: string
-          id?: string
-          joined_at?: string
-          user_id?: string
+          id?: number
+          name?: string
         }
-        Relationships: [
-          {
-            foreignKeyName: "group_members_group_id_fkey"
-            columns: ["group_id"]
-            isOneToOne: false
-            referencedRelation: "study_groups"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       group_messages: {
         Row: {
@@ -221,145 +389,274 @@ export type Database = {
           },
         ]
       }
+      majors: {
+        Row: {
+          faculty_id: number
+          id: number
+          name: string
+        }
+        Insert: {
+          faculty_id: number
+          id?: number
+          name: string
+        }
+        Update: {
+          faculty_id?: number
+          id?: number
+          name?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "majors_faculty_id_fkey"
+            columns: ["faculty_id"]
+            isOneToOne: false
+            referencedRelation: "faculties"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           avatar_url: string | null
           bio: string | null
           created_at: string
-          display_name: string
+          dashboard_color: string | null
           email: string | null
+          faculty_id: number | null
+          full_name: string
           id: string
+          major_id: number | null
           student_id: string | null
           updated_at: string
           user_id: string
+          username: string | null
         }
         Insert: {
           avatar_url?: string | null
           bio?: string | null
           created_at?: string
-          display_name?: string
+          dashboard_color?: string | null
           email?: string | null
+          faculty_id?: number | null
+          full_name?: string
           id?: string
+          major_id?: number | null
           student_id?: string | null
           updated_at?: string
           user_id: string
+          username?: string | null
         }
         Update: {
           avatar_url?: string | null
           bio?: string | null
           created_at?: string
-          display_name?: string
+          dashboard_color?: string | null
           email?: string | null
+          faculty_id?: number | null
+          full_name?: string
           id?: string
+          major_id?: number | null
           student_id?: string | null
           updated_at?: string
           user_id?: string
-        }
-        Relationships: []
-      }
-      qa_replies: {
-        Row: {
-          body: string
-          created_at: string
-          id: string
-          is_anonymous: boolean
-          thread_id: string
-          user_id: string
-        }
-        Insert: {
-          body: string
-          created_at?: string
-          id?: string
-          is_anonymous?: boolean
-          thread_id: string
-          user_id: string
-        }
-        Update: {
-          body?: string
-          created_at?: string
-          id?: string
-          is_anonymous?: boolean
-          thread_id?: string
-          user_id?: string
+          username?: string | null
         }
         Relationships: [
           {
-            foreignKeyName: "qa_replies_thread_id_fkey"
-            columns: ["thread_id"]
+            foreignKeyName: "profiles_faculty_id_fkey"
+            columns: ["faculty_id"]
             isOneToOne: false
-            referencedRelation: "qa_threads"
+            referencedRelation: "faculties"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "profiles_major_id_fkey"
+            columns: ["major_id"]
+            isOneToOne: false
+            referencedRelation: "majors"
             referencedColumns: ["id"]
           },
         ]
       }
-      qa_threads: {
+      questions: {
         Row: {
           body: string
           created_at: string
           id: string
           is_anonymous: boolean
+          is_answered: boolean
           tags: string[] | null
           title: string
           updated_at: string
-          user_id: string
+          upvotes_count: number
+          user_id: string | null
+          views_count: number
         }
         Insert: {
           body: string
           created_at?: string
           id?: string
           is_anonymous?: boolean
+          is_answered?: boolean
           tags?: string[] | null
           title: string
           updated_at?: string
-          user_id: string
+          upvotes_count?: number
+          user_id?: string | null
+          views_count?: number
         }
         Update: {
           body?: string
           created_at?: string
           id?: string
           is_anonymous?: boolean
+          is_answered?: boolean
           tags?: string[] | null
           title?: string
           updated_at?: string
-          user_id?: string
+          upvotes_count?: number
+          user_id?: string | null
+          views_count?: number
         }
         Relationships: []
       }
+      study_group_members: {
+        Row: {
+          group_id: string
+          id: string
+          joined_at: string
+          role: string
+          user_id: string
+        }
+        Insert: {
+          group_id: string
+          id?: string
+          joined_at?: string
+          role?: string
+          user_id: string
+        }
+        Update: {
+          group_id?: string
+          id?: string
+          joined_at?: string
+          role?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "study_group_members_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "study_groups"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       study_groups: {
         Row: {
+          course_name: string | null
+          cover_image_url: string | null
           created_at: string
+          creator_id: string
           description: string | null
+          faculty_id: number | null
           id: string
           max_members: number
           name: string
-          owner_id: string
-          subject: string
+          slug: string | null
+          status: string
           tags: string[] | null
           updated_at: string
         }
         Insert: {
+          course_name?: string | null
+          cover_image_url?: string | null
           created_at?: string
+          creator_id: string
           description?: string | null
+          faculty_id?: number | null
           id?: string
           max_members?: number
           name: string
-          owner_id: string
-          subject: string
+          slug?: string | null
+          status?: string
           tags?: string[] | null
           updated_at?: string
         }
         Update: {
+          course_name?: string | null
+          cover_image_url?: string | null
           created_at?: string
+          creator_id?: string
           description?: string | null
+          faculty_id?: number | null
           id?: string
           max_members?: number
           name?: string
-          owner_id?: string
-          subject?: string
+          slug?: string | null
+          status?: string
           tags?: string[] | null
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "study_groups_faculty_id_fkey"
+            columns: ["faculty_id"]
+            isOneToOne: false
+            referencedRelation: "faculties"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tasks: {
+        Row: {
+          created_at: string
+          description: string | null
+          due_date: string | null
+          group_id: string | null
+          id: string
+          priority: string
+          reminder_at: string | null
+          status: string
+          title: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          due_date?: string | null
+          group_id?: string | null
+          id?: string
+          priority?: string
+          reminder_at?: string | null
+          status?: string
+          title: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          due_date?: string | null
+          group_id?: string | null
+          id?: string
+          priority?: string
+          reminder_at?: string | null
+          status?: string
+          title?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tasks_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "study_groups"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       user_roles: {
         Row: {
@@ -400,7 +697,7 @@ export type Database = {
       }
     }
     Enums: {
-      app_role: "admin" | "organizer" | "student"
+      app_role: "admin" | "student"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -528,7 +825,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      app_role: ["admin", "organizer", "student"],
+      app_role: ["admin", "student"],
     },
   },
 } as const
