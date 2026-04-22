@@ -4,14 +4,14 @@ import { ArrowLeft, Send, Users, LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
 
 type Message = { id: string; user_id: string; content: string; created_at: string };
-type Member = { user_id: string; display_name: string };
+type Member = { user_id: string; full_name: string; avatar_url: string | null };
 
 const initials = (n: string) => n.split(" ").map(p => p[0]).join("").slice(0, 2).toUpperCase();
 
@@ -22,7 +22,7 @@ const StudyGroupDetail = () => {
   const [group, setGroup] = useState<any>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [members, setMembers] = useState<Member[]>([]);
-  const [profileMap, setProfileMap] = useState<Record<string, string>>({});
+  const [profileMap, setProfileMap] = useState<Record<string, { name: string; avatar: string | null }>>({});
   const [text, setText] = useState("");
   const [sending, setSending] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -37,21 +37,21 @@ const StudyGroupDetail = () => {
     const { data: g } = await supabase.from("study_groups").select("*").eq("id", id).maybeSingle();
     setGroup(g);
 
-    const { data: ms } = await supabase.from("group_members").select("user_id").eq("group_id", id);
-    const memberIds = (ms ?? []).map(m => m.user_id);
+    const { data: ms } = await supabase.from("study_group_members").select("user_id").eq("group_id", id);
+    const memberIds = ((ms ?? []) as any[]).map((m) => m.user_id);
 
     if (memberIds.length) {
-      const { data: profs } = await supabase.from("profiles").select("user_id, display_name").in("user_id", memberIds);
-      const map: Record<string, string> = {};
-      (profs ?? []).forEach(p => { map[p.user_id] = p.display_name; });
+      const { data: profs } = await supabase.from("profiles").select("user_id, full_name, avatar_url").in("user_id", memberIds);
+      const map: Record<string, { name: string; avatar: string | null }> = {};
+      ((profs ?? []) as any[]).forEach((p) => { map[p.user_id] = { name: p.full_name, avatar: p.avatar_url }; });
       setProfileMap(map);
-      setMembers(memberIds.map(uid => ({ user_id: uid, display_name: map[uid] ?? "Member" })));
+      setMembers(memberIds.map(uid => ({ user_id: uid, full_name: map[uid]?.name ?? "Member", avatar_url: map[uid]?.avatar ?? null })));
     }
 
     const { data: msgs, error } = await supabase
       .from("group_messages").select("*").eq("group_id", id).order("created_at");
     if (error) { toast.error(error.message); return; }
-    setMessages(msgs ?? []);
+    setMessages((msgs ?? []) as any);
     scrollDown();
   };
 
@@ -66,12 +66,12 @@ const StudyGroupDetail = () => {
           const m = payload.new as Message;
           setMessages(prev => prev.some(x => x.id === m.id) ? prev : [...prev, m]);
           if (!profileMap[m.user_id]) {
-            const { data } = await supabase.from("profiles").select("display_name").eq("user_id", m.user_id).maybeSingle();
-            if (data) setProfileMap(p => ({ ...p, [m.user_id]: data.display_name }));
+            const { data } = await supabase.from("profiles").select("full_name, avatar_url").eq("user_id", m.user_id).maybeSingle();
+            if (data) setProfileMap(p => ({ ...p, [m.user_id]: { name: (data as any).full_name, avatar: (data as any).avatar_url } }));
           }
           scrollDown();
         })
-      .on("postgres_changes", { event: "*", schema: "public", table: "group_members", filter: `group_id=eq.${id}` },
+      .on("postgres_changes", { event: "*", schema: "public", table: "study_group_members", filter: `group_id=eq.${id}` },
         () => loadAll())
       .subscribe();
     return () => { supabase.removeChannel(ch); };
@@ -89,7 +89,7 @@ const StudyGroupDetail = () => {
 
   const leaveGroup = async () => {
     if (!id || !user) return;
-    const { error } = await supabase.from("group_members").delete().eq("group_id", id).eq("user_id", user.id);
+    const { error } = await supabase.from("study_group_members").delete().eq("group_id", id).eq("user_id", user.id);
     if (error) { toast.error(error.message); return; }
     toast.success("Left the group");
     navigate("/dashboard/study-groups");
@@ -106,10 +106,10 @@ const StudyGroupDetail = () => {
           </Button>
           <div className="min-w-0">
             <h1 className="text-xl font-bold text-foreground truncate">{group.name}</h1>
-            <p className="text-sm text-muted-foreground truncate">{group.subject} · {members.length} members</p>
+            <p className="text-sm text-muted-foreground truncate">{group.course_name ?? "—"} · {members.length} members</p>
           </div>
         </div>
-        {group.owner_id !== user?.id && (
+        {group.creator_id !== user?.id && (
           <Button variant="outline" size="sm" onClick={leaveGroup}>
             <LogOut className="w-3 h-3 mr-1" />Leave
           </Button>
@@ -124,11 +124,13 @@ const StudyGroupDetail = () => {
             )}
             {messages.map(m => {
               const mine = m.user_id === user?.id;
-              const name = profileMap[m.user_id] ?? "Member";
+              const prof = profileMap[m.user_id];
+              const name = prof?.name ?? "Member";
               return (
                 <div key={m.id} className={`flex gap-2 ${mine ? "justify-end" : "justify-start"}`}>
                   {!mine && (
                     <Avatar className="w-8 h-8 shrink-0">
+                      {prof?.avatar && <AvatarImage src={prof.avatar} alt={name} />}
                       <AvatarFallback className="text-xs bg-secondary">{initials(name)}</AvatarFallback>
                     </Avatar>
                   )}
@@ -174,9 +176,12 @@ const StudyGroupDetail = () => {
             <CardContent className="space-y-2">
               {members.map(m => (
                 <div key={m.user_id} className="flex items-center gap-2 text-sm">
-                  <Avatar className="w-7 h-7"><AvatarFallback className="text-xs bg-secondary">{initials(m.display_name)}</AvatarFallback></Avatar>
-                  <span className="text-foreground truncate">{m.display_name}</span>
-                  {m.user_id === group.owner_id && <Badge variant="outline" className="text-[10px] ml-auto">Owner</Badge>}
+                  <Avatar className="w-7 h-7">
+                    {m.avatar_url && <AvatarImage src={m.avatar_url} alt={m.full_name} />}
+                    <AvatarFallback className="text-xs bg-secondary">{initials(m.full_name)}</AvatarFallback>
+                  </Avatar>
+                  <span className="text-foreground truncate">{m.full_name}</span>
+                  {m.user_id === group.creator_id && <Badge variant="outline" className="text-[10px] ml-auto">Owner</Badge>}
                 </div>
               ))}
             </CardContent>

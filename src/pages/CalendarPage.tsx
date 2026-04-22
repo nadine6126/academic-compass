@@ -12,20 +12,27 @@ import { Plus, Trash2, Clock, Bell } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
-import { format, parseISO } from "date-fns";
+import { format } from "date-fns";
 
 type CalEvent = {
   id: string; title: string; description: string | null;
-  event_date: string; event_time: string | null; event_type: string;
+  start_at: string; type: string;
   reminder_minutes: number | null; reminded: boolean;
 };
 
 const TYPE_COLORS: Record<string, string> = {
   task: "bg-primary/10 text-primary",
   exam: "bg-destructive/10 text-destructive",
-  deadline: "bg-warning/10 text-warning",
-  class: "bg-info/10 text-info",
-  other: "bg-secondary text-secondary-foreground",
+  assignment: "bg-orange-500/10 text-orange-600 dark:text-orange-400",
+  webinar: "bg-blue-500/10 text-blue-600 dark:text-blue-400",
+  group_meeting: "bg-green-500/10 text-green-600 dark:text-green-400",
+  custom: "bg-secondary text-secondary-foreground",
+};
+
+const toLocalIso = (date: string, time: string) => {
+  // returns ISO string "YYYY-MM-DDTHH:MM:00" treated as local
+  const t = time || "09:00";
+  return new Date(`${date}T${t}:00`).toISOString();
 };
 
 const CalendarPage = () => {
@@ -36,15 +43,16 @@ const CalendarPage = () => {
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState({
     title: "", description: "", event_date: format(new Date(), "yyyy-MM-dd"),
-    event_time: "", event_type: "task", reminder_minutes: 60,
+    event_time: "09:00", type: "task", reminder_minutes: 60,
   });
 
   const load = async () => {
     if (!user) return;
     const { data, error } = await supabase.from("calendar_events")
-      .select("*").eq("user_id", user.id).order("event_date");
+      .select("id, title, description, start_at, type, reminder_minutes, reminded")
+      .eq("user_id", user.id).order("start_at");
     if (error) { toast.error(error.message); return; }
-    setEvents(data ?? []);
+    setEvents((data ?? []) as any);
   };
 
   useEffect(() => { load(); }, [user]);
@@ -56,8 +64,8 @@ const CalendarPage = () => {
     const tick = async () => {
       const now = new Date();
       for (const ev of events) {
-        if (ev.reminded || !ev.reminder_minutes || !ev.event_time) continue;
-        const dt = new Date(`${ev.event_date}T${ev.event_time}`);
+        if (ev.reminded || !ev.reminder_minutes) continue;
+        const dt = new Date(ev.start_at);
         const remindAt = new Date(dt.getTime() - ev.reminder_minutes * 60000);
         if (now >= remindAt && now <= dt) {
           toast.info(`⏰ ${ev.title}`, { description: `In ${ev.reminder_minutes} min` });
@@ -79,14 +87,14 @@ const CalendarPage = () => {
     setSaving(true);
     const { error } = await supabase.from("calendar_events").insert({
       user_id: user!.id, title: form.title, description: form.description || null,
-      event_date: form.event_date, event_time: form.event_time || null,
-      event_type: form.event_type, reminder_minutes: form.reminder_minutes,
+      start_at: toLocalIso(form.event_date, form.event_time),
+      type: form.type, reminder_minutes: form.reminder_minutes,
     });
     setSaving(false);
     if (error) { toast.error(error.message); return; }
     toast.success("Added to calendar");
     setOpen(false);
-    setForm({ title: "", description: "", event_date: format(selected, "yyyy-MM-dd"), event_time: "", event_type: "task", reminder_minutes: 60 });
+    setForm({ title: "", description: "", event_date: format(selected, "yyyy-MM-dd"), event_time: "09:00", type: "task", reminder_minutes: 60 });
     load();
   };
 
@@ -96,9 +104,10 @@ const CalendarPage = () => {
     toast.success("Deleted"); load();
   };
 
-  const eventDates = useMemo(() => events.map(e => parseISO(e.event_date)), [events]);
-  const dayEvents = events.filter(e => e.event_date === format(selected, "yyyy-MM-dd"));
-  const upcoming = events.filter(e => e.event_date >= format(new Date(), "yyyy-MM-dd")).slice(0, 5);
+  const eventDates = useMemo(() => events.map(e => new Date(e.start_at)), [events]);
+  const selectedDateStr = format(selected, "yyyy-MM-dd");
+  const dayEvents = events.filter(e => format(new Date(e.start_at), "yyyy-MM-dd") === selectedDateStr);
+  const upcoming = events.filter(e => new Date(e.start_at) >= new Date()).slice(0, 5);
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -116,19 +125,20 @@ const CalendarPage = () => {
               <div><Label>Description</Label><Textarea rows={2} value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} /></div>
               <div className="grid grid-cols-2 gap-3">
                 <div><Label>Date</Label><Input type="date" value={form.event_date} onChange={e => setForm({ ...form, event_date: e.target.value })} /></div>
-                <div><Label>Time (optional)</Label><Input type="time" value={form.event_time} onChange={e => setForm({ ...form, event_time: e.target.value })} /></div>
+                <div><Label>Time</Label><Input type="time" value={form.event_time} onChange={e => setForm({ ...form, event_time: e.target.value })} /></div>
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <Label>Type</Label>
-                  <Select value={form.event_type} onValueChange={v => setForm({ ...form, event_type: v })}>
+                  <Select value={form.type} onValueChange={v => setForm({ ...form, type: v })}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="task">Task</SelectItem>
                       <SelectItem value="exam">Exam</SelectItem>
-                      <SelectItem value="deadline">Deadline</SelectItem>
-                      <SelectItem value="class">Class</SelectItem>
-                      <SelectItem value="other">Other</SelectItem>
+                      <SelectItem value="assignment">Assignment</SelectItem>
+                      <SelectItem value="group_meeting">Group Meeting</SelectItem>
+                      <SelectItem value="webinar">Webinar</SelectItem>
+                      <SelectItem value="custom">Custom</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -173,11 +183,11 @@ const CalendarPage = () => {
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2 flex-wrap">
                           <p className="font-medium text-foreground">{e.title}</p>
-                          <Badge className={`text-[10px] ${TYPE_COLORS[e.event_type] ?? TYPE_COLORS.other}`}>{e.event_type}</Badge>
+                          <Badge className={`text-[10px] ${TYPE_COLORS[e.type] ?? TYPE_COLORS.custom}`}>{e.type}</Badge>
                         </div>
                         {e.description && <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">{e.description}</p>}
                         <div className="flex gap-3 mt-1 text-xs text-muted-foreground">
-                          {e.event_time && <span className="flex items-center gap-1"><Clock className="w-3 h-3" />{e.event_time.slice(0, 5)}</span>}
+                          <span className="flex items-center gap-1"><Clock className="w-3 h-3" />{format(new Date(e.start_at), "HH:mm")}</span>
                           {e.reminder_minutes ? <span className="flex items-center gap-1"><Bell className="w-3 h-3" />{e.reminder_minutes >= 60 ? `${e.reminder_minutes/60}h` : `${e.reminder_minutes}m`}</span> : null}
                         </div>
                       </div>
@@ -199,13 +209,13 @@ const CalendarPage = () => {
               ) : (
                 <div className="space-y-1">
                   {upcoming.map(e => (
-                    <button key={e.id} onClick={() => setSelected(parseISO(e.event_date))}
+                    <button key={e.id} onClick={() => setSelected(new Date(e.start_at))}
                       className="w-full text-left flex items-center justify-between p-2 rounded hover:bg-accent">
                       <div className="min-w-0">
                         <p className="text-sm font-medium text-foreground truncate">{e.title}</p>
-                        <p className="text-xs text-muted-foreground">{format(parseISO(e.event_date), "MMM d")}{e.event_time ? ` · ${e.event_time.slice(0, 5)}` : ""}</p>
+                        <p className="text-xs text-muted-foreground">{format(new Date(e.start_at), "MMM d · HH:mm")}</p>
                       </div>
-                      <Badge variant="outline" className="text-[10px]">{e.event_type}</Badge>
+                      <Badge variant="outline" className="text-[10px]">{e.type}</Badge>
                     </button>
                   ))}
                 </div>

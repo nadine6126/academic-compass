@@ -6,22 +6,22 @@ import { MessageSquare, Send } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
 
-type Thread = {
-  id: string; user_id: string; title: string; body: string;
+type Question = {
+  id: string; user_id: string | null; title: string; body: string;
   is_anonymous: boolean; created_at: string;
-  reply_count?: number; author_name?: string;
+  reply_count?: number; author_name?: string; author_avatar?: string | null;
 };
 
 const initials = (n: string) => n.split(" ").map(p => p[0]).join("").slice(0, 2).toUpperCase();
 
 const QAForum = () => {
   const [anonymous, setAnonymous] = useState(false);
-  const [threads, setThreads] = useState<Thread[]>([]);
+  const [items, setItems] = useState<Question[]>([]);
   const [loading, setLoading] = useState(true);
   const [text, setText] = useState("");
   const [posting, setPosting] = useState(false);
@@ -29,20 +29,23 @@ const QAForum = () => {
 
   const load = async () => {
     setLoading(true);
-    const { data: ts } = await supabase.from("qa_threads").select("*").order("created_at", { ascending: false });
-    const userIds = [...new Set((ts ?? []).map((t: any) => t.user_id))];
+    const { data: ts } = await supabase.from("questions").select("*").order("created_at", { ascending: false });
+    const userIds = [...new Set(((ts ?? []) as any[]).map((t) => t.user_id).filter(Boolean))];
     const { data: profs } = userIds.length
-      ? await supabase.from("profiles").select("user_id, display_name").in("user_id", userIds)
+      ? await supabase.from("profiles").select("user_id, full_name, avatar_url").in("user_id", userIds)
       : { data: [] as any };
-    const map: Record<string, string> = {};
-    (profs ?? []).forEach((p: any) => { map[p.user_id] = p.display_name; });
+    const map: Record<string, { name: string; avatar: string | null }> = {};
+    ((profs ?? []) as any[]).forEach((p) => { map[p.user_id] = { name: p.full_name, avatar: p.avatar_url }; });
 
-    const { data: replies } = await supabase.from("qa_replies").select("thread_id");
+    const { data: replies } = await supabase.from("answers").select("question_id");
     const counts: Record<string, number> = {};
-    (replies ?? []).forEach((r: any) => { counts[r.thread_id] = (counts[r.thread_id] ?? 0) + 1; });
+    ((replies ?? []) as any[]).forEach((r) => { counts[r.question_id] = (counts[r.question_id] ?? 0) + 1; });
 
-    setThreads((ts ?? []).map((t: any) => ({
-      ...t, reply_count: counts[t.id] ?? 0, author_name: map[t.user_id] ?? "Student",
+    setItems(((ts ?? []) as any[]).map((t) => ({
+      ...t,
+      reply_count: counts[t.id] ?? 0,
+      author_name: t.user_id ? map[t.user_id]?.name ?? "Student" : "Student",
+      author_avatar: t.user_id ? map[t.user_id]?.avatar ?? null : null,
     })));
     setLoading(false);
   };
@@ -55,7 +58,7 @@ const QAForum = () => {
     if (content.length > 500) { toast.error("Maximum 500 characters"); return; }
     setPosting(true);
     const title = content.slice(0, 80);
-    const { error } = await supabase.from("qa_threads").insert({
+    const { error } = await supabase.from("questions").insert({
       user_id: user!.id, title, body: content, tags: [], is_anonymous: anonymous,
     });
     setPosting(false);
@@ -91,19 +94,20 @@ const QAForum = () => {
 
       {loading ? (
         <div className="text-center py-12 text-muted-foreground">Loading…</div>
-      ) : threads.length === 0 ? (
+      ) : items.length === 0 ? (
         <Card><CardContent className="py-12 text-center text-muted-foreground">
           No questions yet. Be the first to ask!
         </CardContent></Card>
       ) : (
         <div className="space-y-3">
-          {threads.map((t) => {
+          {items.map((t) => {
             const author = t.is_anonymous ? "Anonymous" : t.author_name ?? "Student";
             return (
               <Card key={t.id} className="hover:shadow-md transition-shadow">
                 <CardContent className="py-4">
                   <div className="flex gap-3">
                     <Avatar className="w-10 h-10 shrink-0">
+                      {!t.is_anonymous && t.author_avatar && <AvatarImage src={t.author_avatar} alt={author} />}
                       <AvatarFallback className="text-xs bg-secondary">{initials(author)}</AvatarFallback>
                     </Avatar>
                     <div className="flex-1 min-w-0 space-y-2">

@@ -15,17 +15,20 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 
 type Group = {
-  id: string; name: string; subject: string; description: string | null;
-  tags: string[] | null; max_members: number; owner_id: string;
+  id: string; name: string; course_name: string | null; description: string | null;
+  tags: string[] | null; max_members: number; creator_id: string;
   member_count?: number; is_member?: boolean;
 };
+
+const slugify = (s: string) =>
+  s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 100) + "-" + Math.random().toString(36).slice(2, 6);
 
 const StudyGroups = () => {
   const [search, setSearch] = useState("");
   const [groups, setGroups] = useState<Group[]>([]);
   const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(false);
-  const [form, setForm] = useState({ name: "", subject: "", description: "", tags: "", max_members: 20 });
+  const [form, setForm] = useState({ name: "", course_name: "", description: "", tags: "", max_members: 20 });
   const [creating, setCreating] = useState(false);
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -34,13 +37,13 @@ const StudyGroups = () => {
     setLoading(true);
     const { data: gs, error } = await supabase
       .from("study_groups")
-      .select("*, group_members(user_id)")
+      .select("*, study_group_members(user_id)")
       .order("created_at", { ascending: false });
     if (error) { toast.error(error.message); setLoading(false); return; }
     const enriched: Group[] = (gs ?? []).map((g: any) => ({
       ...g,
-      member_count: g.group_members?.length ?? 0,
-      is_member: g.group_members?.some((m: any) => m.user_id === user?.id) ?? false,
+      member_count: g.study_group_members?.length ?? 0,
+      is_member: g.study_group_members?.some((m: any) => m.user_id === user?.id) ?? false,
     }));
     setGroups(enriched);
     setLoading(false);
@@ -49,23 +52,24 @@ const StudyGroups = () => {
   useEffect(() => { if (user) load(); }, [user]);
 
   const handleCreate = async () => {
-    if (!form.name || !form.subject) { toast.error("Name and subject required"); return; }
+    if (!form.name || !form.course_name) { toast.error("Name and course required"); return; }
     setCreating(true);
     const tags = form.tags.split(",").map(t => t.trim()).filter(Boolean);
     const { data, error } = await supabase.from("study_groups").insert({
-      owner_id: user!.id, name: form.name, subject: form.subject,
+      creator_id: user!.id, name: form.name, course_name: form.course_name,
       description: form.description, tags, max_members: form.max_members,
+      slug: slugify(form.name),
     }).select().single();
     setCreating(false);
     if (error) { toast.error(error.message); return; }
     toast.success("Group created!");
     setOpen(false);
-    setForm({ name: "", subject: "", description: "", tags: "", max_members: 20 });
+    setForm({ name: "", course_name: "", description: "", tags: "", max_members: 20 });
     if (data) navigate(`/dashboard/study-groups/${data.id}`);
   };
 
   const handleJoin = async (g: Group) => {
-    const { error } = await supabase.from("group_members").insert({ group_id: g.id, user_id: user!.id });
+    const { error } = await supabase.from("study_group_members").insert({ group_id: g.id, user_id: user!.id });
     if (error) { toast.error(error.message); return; }
     toast.success("Joined group!");
     navigate(`/dashboard/study-groups/${g.id}`);
@@ -73,7 +77,7 @@ const StudyGroups = () => {
 
   const filtered = groups.filter(g =>
     g.name.toLowerCase().includes(search.toLowerCase()) ||
-    g.subject.toLowerCase().includes(search.toLowerCase())
+    (g.course_name ?? "").toLowerCase().includes(search.toLowerCase())
   );
 
   return (
@@ -91,7 +95,7 @@ const StudyGroups = () => {
             <DialogHeader><DialogTitle>Create a Study Group</DialogTitle></DialogHeader>
             <div className="space-y-3">
               <div><Label>Name</Label><Input value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} placeholder="e.g. DSA Weekly Practice" /></div>
-              <div><Label>Subject / Course Code</Label><Input value={form.subject} onChange={e => setForm({ ...form, subject: e.target.value })} placeholder="e.g. CS201" /></div>
+              <div><Label>Course Name</Label><Input value={form.course_name} onChange={e => setForm({ ...form, course_name: e.target.value })} placeholder="e.g. CS201 Algorithms" /></div>
               <div><Label>Description</Label><Textarea value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} rows={3} /></div>
               <div><Label>Tags (comma separated)</Label><Input value={form.tags} onChange={e => setForm({ ...form, tags: e.target.value })} placeholder="Computer Science, Coding" /></div>
               <div><Label>Max Members</Label><Input type="number" value={form.max_members} onChange={e => setForm({ ...form, max_members: parseInt(e.target.value) || 20 })} min={2} max={100} /></div>
@@ -105,7 +109,7 @@ const StudyGroups = () => {
 
       <div className="relative max-w-md">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-        <Input placeholder="Search groups or subjects..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-10" />
+        <Input placeholder="Search groups or courses..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-10" />
       </div>
 
       {loading ? (
@@ -122,7 +126,7 @@ const StudyGroups = () => {
                 <div className="space-y-3 flex-1">
                   <div>
                     <h3 className="font-semibold text-foreground line-clamp-1">{group.name}</h3>
-                    <p className="text-sm text-muted-foreground">{group.subject}</p>
+                    <p className="text-sm text-muted-foreground">{group.course_name ?? "—"}</p>
                   </div>
                   {group.description && <p className="text-sm text-muted-foreground line-clamp-2">{group.description}</p>}
                   {group.tags && group.tags.length > 0 && (

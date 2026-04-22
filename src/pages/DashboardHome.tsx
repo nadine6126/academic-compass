@@ -6,7 +6,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 
 type Stats = { groups: number; events: number; calendar: number; qa: number };
-type Group = { id: string; name: string; subject: string; member_count: number };
+type Group = { id: string; name: string; course_name: string | null; member_count: number };
 
 const DashboardHome = () => {
   const { user } = useAuth();
@@ -18,30 +18,30 @@ const DashboardHome = () => {
   useEffect(() => {
     if (!user) return;
     (async () => {
-      const { data: prof } = await supabase.from("profiles").select("display_name").eq("user_id", user.id).maybeSingle();
-      if (prof?.display_name) setName(prof.display_name);
+      const { data: prof } = await supabase.from("profiles").select("full_name").eq("user_id", user.id).maybeSingle();
+      if (prof?.full_name) setName(prof.full_name);
 
-      const { data: gm } = await supabase.from("group_members").select("group_id").eq("user_id", user.id);
-      const groupIds = (gm ?? []).map(g => g.group_id);
+      const { data: gm } = await supabase.from("study_group_members").select("group_id").eq("user_id", user.id);
+      const groupIds = (gm ?? []).map((g: any) => g.group_id);
 
       let groups: Group[] = [];
       if (groupIds.length) {
         const { data: gs } = await supabase
           .from("study_groups")
-          .select("id, name, subject, group_members(user_id)")
+          .select("id, name, course_name, study_group_members(user_id)")
           .in("id", groupIds);
         groups = (gs ?? []).map((g: any) => ({
-          id: g.id, name: g.name, subject: g.subject,
-          member_count: g.group_members?.length ?? 0,
+          id: g.id, name: g.name, course_name: g.course_name,
+          member_count: g.study_group_members?.length ?? 0,
         }));
       }
       setMyGroups(groups.slice(0, 4));
 
-      const today = new Date().toISOString().slice(0, 10);
+      const today = new Date().toISOString();
       const [{ count: rsvpCount }, { count: calCount }, { count: qaCount }] = await Promise.all([
         supabase.from("event_rsvps").select("event_id", { count: "exact", head: true }).eq("user_id", user.id),
-        supabase.from("calendar_events").select("id", { count: "exact", head: true }).eq("user_id", user.id).gte("event_date", today),
-        supabase.from("qa_threads").select("id", { count: "exact", head: true }).eq("user_id", user.id),
+        supabase.from("calendar_events").select("id", { count: "exact", head: true }).eq("user_id", user.id).gte("start_at", today),
+        supabase.from("questions").select("id", { count: "exact", head: true }).eq("user_id", user.id),
       ]);
 
       setStats({
@@ -101,7 +101,7 @@ const DashboardHome = () => {
                   className="flex items-center justify-between p-3 rounded-lg bg-secondary/50 hover:bg-secondary transition-colors cursor-pointer">
                   <div>
                     <p className="font-medium text-foreground">{group.name}</p>
-                    <p className="text-sm text-muted-foreground">{group.subject}</p>
+                    <p className="text-sm text-muted-foreground">{group.course_name ?? "—"}</p>
                   </div>
                   <div className="flex items-center gap-1 text-sm text-muted-foreground">
                     <Users className="w-3 h-3" />
