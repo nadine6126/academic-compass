@@ -23,7 +23,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const signOut = async () => {
     await supabase.auth.signOut();
-    // Reset theme to defaults on logout
     localStorage.removeItem("theme_mode");
     localStorage.removeItem("theme_accent");
     document.documentElement.classList.remove("dark");
@@ -31,6 +30,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     document.documentElement.style.removeProperty("--ring");
     document.documentElement.style.removeProperty("--sidebar-primary");
     document.documentElement.style.removeProperty("--sidebar-ring");
+    window.location.href = "/login";
   };
 
   return (

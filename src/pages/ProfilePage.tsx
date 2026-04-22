@@ -1,11 +1,12 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
-import { Palette, Sun, Moon } from "lucide-react";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Palette, Sun, Moon, Camera, Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useUserRole } from "@/hooks/useUserRole";
@@ -17,29 +18,51 @@ const ProfilePage = () => {
   const { roles } = useUserRole();
   const { mode, accent, setMode, setAccent, resetToDefault } = useTheme();
   const [profile, setProfile] = useState<any>(null);
-  const [form, setForm] = useState({ display_name: "", bio: "" });
+  const [form, setForm] = useState({ full_name: "", bio: "" });
   const [saving, setSaving] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const fileRef = useRef<HTMLInputElement>(null);
 
-  useEffect(() => {
+  const load = () => {
     if (!user) return;
     supabase.from("profiles").select("*").eq("user_id", user.id).maybeSingle()
       .then(({ data }) => {
         setProfile(data);
-        setForm({ display_name: data?.display_name ?? "", bio: data?.bio ?? "" });
+        setForm({ full_name: (data as any)?.full_name ?? "", bio: (data as any)?.bio ?? "" });
       });
-  }, [user]);
+  };
+
+  useEffect(() => { load(); }, [user]);
 
   const save = async () => {
     setSaving(true);
     const { error } = await supabase.from("profiles")
-      .update({ display_name: form.display_name, bio: form.bio })
+      .update({ full_name: form.full_name, bio: form.bio })
       .eq("user_id", user!.id);
     setSaving(false);
     if (error) { toast.error(error.message); return; }
     toast.success("Profile updated");
+    load();
   };
 
-  const initials = (form.display_name || "?").split(" ").map(p => p[0]).join("").slice(0, 2).toUpperCase();
+  const handleUpload = async (file: File) => {
+    if (!user) return;
+    if (file.size > 5 * 1024 * 1024) { toast.error("Image must be under 5MB"); return; }
+    setUploading(true);
+    const ext = file.name.split(".").pop()?.toLowerCase() || "jpg";
+    const path = `${user.id}/avatar-${Date.now()}.${ext}`;
+    const { error: upErr } = await supabase.storage.from("avatars").upload(path, file, { upsert: true });
+    if (upErr) { toast.error(upErr.message); setUploading(false); return; }
+    const { data: pub } = supabase.storage.from("avatars").getPublicUrl(path);
+    const url = pub.publicUrl;
+    const { error: updErr } = await supabase.from("profiles").update({ avatar_url: url }).eq("user_id", user.id);
+    setUploading(false);
+    if (updErr) { toast.error(updErr.message); return; }
+    toast.success("Avatar updated!");
+    load();
+  };
+
+  const initials = (form.full_name || "?").split(" ").map(p => p[0]).join("").slice(0, 2).toUpperCase();
 
   return (
     <div className="space-y-6 animate-fade-in max-w-2xl">
@@ -52,16 +75,28 @@ const ProfilePage = () => {
         <CardHeader><CardTitle className="text-lg">Personal Information</CardTitle></CardHeader>
         <CardContent className="space-y-4">
           <div className="flex items-center gap-4">
-            <div className="w-16 h-16 rounded-full bg-primary flex items-center justify-center text-primary-foreground text-xl font-bold">{initials}</div>
+            <div className="relative">
+              <Avatar className="w-20 h-20">
+                {profile?.avatar_url && <AvatarImage src={profile.avatar_url} alt={form.full_name} />}
+                <AvatarFallback className="bg-primary text-primary-foreground text-xl font-bold">{initials}</AvatarFallback>
+              </Avatar>
+              <button onClick={() => fileRef.current?.click()} disabled={uploading}
+                className="absolute -bottom-1 -right-1 w-7 h-7 rounded-full bg-primary text-primary-foreground flex items-center justify-center shadow hover:scale-105 transition disabled:opacity-50">
+                {uploading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Camera className="w-3.5 h-3.5" />}
+              </button>
+              <input ref={fileRef} type="file" accept="image/*" className="hidden"
+                onChange={(e) => { const f = e.target.files?.[0]; if (f) handleUpload(f); }} />
+            </div>
             <div className="space-y-1">
-              <p className="font-semibold text-foreground">{form.display_name || "—"}</p>
+              <p className="font-semibold text-foreground">{form.full_name || "—"}</p>
               <div className="flex gap-1 flex-wrap">
                 {roles.map(r => <Badge key={r} variant={r === "admin" ? "default" : "secondary"} className="capitalize text-[10px]">{r}</Badge>)}
               </div>
+              <p className="text-xs text-muted-foreground">Click camera to change photo</p>
             </div>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div><Label>Full Name</Label><Input value={form.display_name} onChange={e => setForm({ ...form, display_name: e.target.value })} className="mt-1" /></div>
+            <div><Label>Full Name</Label><Input value={form.full_name} onChange={e => setForm({ ...form, full_name: e.target.value })} className="mt-1" /></div>
             <div><Label>Email</Label><Input value={profile?.email ?? user?.email ?? ""} disabled className="mt-1" /></div>
             {profile?.student_id && <div><Label>Student ID</Label><Input value={profile.student_id} disabled className="mt-1" /></div>}
           </div>

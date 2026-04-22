@@ -1,20 +1,39 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { Sparkles, Upload, FileText, Loader2 } from "lucide-react";
+import { Sparkles, Upload, FileText, Loader2, History, Trash2, ChevronRight } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
 import mammoth from "mammoth";
+import { formatDistanceToNow } from "date-fns";
 
 type Result = { summary: string; topics?: string[]; key_points?: string[] };
+type HistoryItem = {
+  id: string; source_type: string; source_name: string | null;
+  input_text: string; summary_text: string;
+  topics: string[] | null; key_points: string[] | null; created_at: string;
+};
 
 const AISummaryPage = () => {
+  const { user } = useAuth();
   const [text, setText] = useState("");
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState<Result | null>(null);
   const [fileName, setFileName] = useState("");
+  const [history, setHistory] = useState<HistoryItem[]>([]);
+  const [viewingId, setViewingId] = useState<string | null>(null);
+
+  const loadHistory = async () => {
+    if (!user) return;
+    const { data } = await supabase.from("ai_summaries").select("*")
+      .eq("user_id", user.id).order("created_at", { ascending: false }).limit(50);
+    setHistory((data ?? []) as any);
+  };
+
+  useEffect(() => { loadHistory(); }, [user]);
 
   const extractFromFile = async (file: File): Promise<string> => {
     const ext = file.name.toLowerCase().split(".").pop();
@@ -57,16 +76,47 @@ const AISummaryPage = () => {
   const summarize = async () => {
     const trimmed = text.trim();
     if (trimmed.length < 20) { toast.error("Please provide at least 20 characters."); return; }
-    setBusy(true); setResult(null);
+    setBusy(true); setResult(null); setViewingId(null);
     try {
       const { data, error } = await supabase.functions.invoke("ai-summary", { body: { text: trimmed } });
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
-      setResult(data);
-      toast.success("Summary generated");
+      const r: Result = data;
+      setResult(r);
+      // Save to history
+      await supabase.from("ai_summaries").insert({
+        user_id: user!.id,
+        source_type: fileName ? "file" : "manual",
+        source_name: fileName || null,
+        input_text: trimmed.slice(0, 10000),
+        summary_text: r.summary,
+        topics: r.topics ?? [],
+        key_points: r.key_points ?? [],
+      });
+      loadHistory();
+      toast.success("Summary generated & saved");
     } catch (e: any) {
       toast.error(e.message ?? "Failed to summarize");
     } finally { setBusy(false); }
+  };
+
+  const viewHistory = (h: HistoryItem) => {
+    setResult({ summary: h.summary_text, topics: h.topics ?? [], key_points: h.key_points ?? [] });
+    setText(h.input_text);
+    setFileName(h.source_name ?? "");
+    setViewingId(h.id);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  const deleteHistory = async (id: string) => {
+    await supabase.from("ai_summaries").delete().eq("id", id);
+    toast.success("Removed from history");
+    loadHistory();
+    if (viewingId === id) { setResult(null); setViewingId(null); }
+  };
+
+  const reset = () => {
+    setText(""); setFileName(""); setResult(null); setViewingId(null);
   };
 
   return (
@@ -75,7 +125,7 @@ const AISummaryPage = () => {
         <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
           <Sparkles className="w-6 h-6 text-primary" /> AI Summary
         </h1>
-        <p className="text-muted-foreground">Paste long text or upload a document to get an academic summary.</p>
+        <p className="text-muted-foreground">Paste long text or upload a document to get an academic summary. History is saved automatically.</p>
       </div>
 
       <Card>
@@ -90,13 +140,11 @@ const AISummaryPage = () => {
               </Button>
             </label>
             {fileName && <Badge variant="secondary" className="gap-1"><FileText className="w-3 h-3" />{fileName}</Badge>}
-            {text && (
-              <Button variant="ghost" size="sm" onClick={() => { setText(""); setFileName(""); setResult(null); }}>
-                Clear
-              </Button>
+            {(text || result) && (
+              <Button variant="ghost" size="sm" onClick={reset}>Clear</Button>
             )}
           </div>
-          <Textarea value={text} onChange={e => setText(e.target.value)} rows={12}
+          <Textarea value={text} onChange={e => setText(e.target.value)} rows={10}
             placeholder="Paste your text, paragraph, or article here…" disabled={busy} />
           <div className="flex justify-between items-center">
             <p className="text-xs text-muted-foreground">{text.length.toLocaleString()} characters</p>
@@ -134,6 +182,33 @@ const AISummaryPage = () => {
           </CardContent>
         </Card>
       )}
+
+      <Card>
+        <CardHeader><CardTitle className="text-lg flex items-center gap-2"><History className="w-4 h-4" />History ({history.length})</CardTitle></CardHeader>
+        <CardContent>
+          {history.length === 0 ? (
+            <p className="text-sm text-muted-foreground text-center py-6">No summaries yet. Generate one above to see it here.</p>
+          ) : (
+            <div className="space-y-2">
+              {history.map(h => (
+                <div key={h.id} className={`flex items-center gap-2 p-3 rounded-lg border hover:bg-accent transition-colors ${viewingId === h.id ? "border-primary bg-accent" : ""}`}>
+                  <button onClick={() => viewHistory(h)} className="flex-1 min-w-0 text-left flex items-center gap-2">
+                    <FileText className="w-4 h-4 text-muted-foreground shrink-0" />
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-medium text-foreground truncate">{h.source_name ?? h.summary_text.slice(0, 60)}</p>
+                      <p className="text-xs text-muted-foreground">{formatDistanceToNow(new Date(h.created_at), { addSuffix: true })}</p>
+                    </div>
+                    <ChevronRight className="w-4 h-4 text-muted-foreground" />
+                  </button>
+                  <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => deleteHistory(h.id)}>
+                    <Trash2 className="w-3.5 h-3.5 text-destructive" />
+                  </Button>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 };
