@@ -18,11 +18,13 @@ const DashboardLayout = () => {
 
   useEffect(() => {
     if (!user) return;
-    const fallback = user.email?.split("@")[0] ?? "Student";
+    const meta = (user.user_metadata ?? {}) as { display_name?: string; full_name?: string };
+    const metaName = meta.display_name || meta.full_name;
+    const emailPrefix = user.email?.split("@")[0] ?? "Student";
     supabase.from("profiles").select("full_name, avatar_url").eq("user_id", user.id).maybeSingle()
       .then(({ data }) => {
-        const display = data?.full_name && data.full_name !== "Student" ? data.full_name : fallback;
-        setName(display);
+        const profName = data?.full_name && data.full_name !== "Student" ? data.full_name : null;
+        setName(profName || metaName || emailPrefix);
         if (data?.avatar_url) setAvatar(data.avatar_url);
       });
   }, [user]);

@@ -306,7 +306,11 @@ export type Database = {
           event_type: string
           external_register_url: string | null
           id: string
+          is_verified: boolean
           location_or_link: string | null
+          organizer_contact: string | null
+          organizer_name: string | null
+          payment_status: string
           posted_by: string
           start_at: string
           status: string
@@ -320,7 +324,11 @@ export type Database = {
           event_type?: string
           external_register_url?: string | null
           id?: string
+          is_verified?: boolean
           location_or_link?: string | null
+          organizer_contact?: string | null
+          organizer_name?: string | null
+          payment_status?: string
           posted_by: string
           start_at: string
           status?: string
@@ -334,7 +342,11 @@ export type Database = {
           event_type?: string
           external_register_url?: string | null
           id?: string
+          is_verified?: boolean
           location_or_link?: string | null
+          organizer_contact?: string | null
+          organizer_name?: string | null
+          payment_status?: string
           posted_by?: string
           start_at?: string
           status?: string

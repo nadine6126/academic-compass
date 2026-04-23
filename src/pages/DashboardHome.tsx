@@ -19,19 +19,22 @@ const DashboardHome = () => {
     if (!user) return;
     (async () => {
       const { data: prof } = await supabase.from("profiles").select("full_name").eq("user_id", user.id).maybeSingle();
-      const fallback = user.email?.split("@")[0] ?? "Student";
-      const display = prof?.full_name && prof.full_name !== "Student" ? prof.full_name : fallback;
+      const meta = (user.user_metadata ?? {}) as { display_name?: string; full_name?: string };
+      const metaName = meta.display_name || meta.full_name;
+      const emailPrefix = user.email?.split("@")[0] ?? "Student";
+      const profName = prof?.full_name && prof.full_name !== "Student" ? prof.full_name : null;
+      const display = profName || metaName || emailPrefix;
       setName(display);
 
-      // Backfill profile if missing (for users who registered before the trigger ran)
+      // Backfill profile if missing or stale
       if (!prof) {
         await supabase.from("profiles").insert({
           user_id: user.id,
-          full_name: fallback,
+          full_name: metaName || emailPrefix,
           email: user.email,
         });
-      } else if (prof.full_name === "Student" && fallback !== "Student") {
-        await supabase.from("profiles").update({ full_name: fallback }).eq("user_id", user.id);
+      } else if ((prof.full_name === "Student" || !prof.full_name) && metaName) {
+        await supabase.from("profiles").update({ full_name: metaName }).eq("user_id", user.id);
       }
 
       const { data: gm } = await supabase.from("study_group_members").select("group_id").eq("user_id", user.id);
