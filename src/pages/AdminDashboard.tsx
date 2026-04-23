@@ -228,7 +228,7 @@ const AdminDashboard = () => {
                       </Button>
                     ) : (
                       <Button size="icon" variant="ghost" title="Verify payment" onClick={() => verifyEvent(ev.id, true)}>
-                        <CheckCircle2 className="w-4 h-4 text-green-600" />
+                        <CheckCircle2 className="w-4 h-4 text-primary" />
                       </Button>
                     )}
                     <Button size="icon" variant="ghost" onClick={() => openEditEvent(ev)}><Pencil className="w-3 h-3" /></Button>
