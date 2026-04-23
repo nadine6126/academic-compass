@@ -208,7 +208,7 @@ const AdminDashboard = () => {
                       <p className="font-medium text-sm">{ev.title}</p>
                       <Badge variant="outline" className="text-[10px] capitalize">{ev.event_type}</Badge>
                       {ev.is_verified ? (
-                        <Badge className="text-[10px] bg-green-600 hover:bg-green-600"><CheckCircle2 className="w-3 h-3 mr-1" />Verified</Badge>
+                        <Badge className="text-[10px]"><CheckCircle2 className="w-3 h-3 mr-1" />Verified</Badge>
                       ) : (
                         <Badge variant="secondary" className="text-[10px]">Pending</Badge>
                       )}
