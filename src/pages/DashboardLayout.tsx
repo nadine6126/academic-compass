@@ -1,4 +1,4 @@
-import { Outlet } from "react-router-dom";
+import { Outlet, useNavigate } from "react-router-dom";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { DashboardSidebar } from "@/components/DashboardSidebar";
 import { AIChatbot } from "@/components/AIChatbot";
@@ -12,14 +12,17 @@ const initials = (n: string) => n.split(" ").map(p => p[0]).join("").slice(0, 2)
 
 const DashboardLayout = () => {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [name, setName] = useState("Student");
   const [avatar, setAvatar] = useState<string | null>(null);
 
   useEffect(() => {
     if (!user) return;
+    const fallback = user.email?.split("@")[0] ?? "Student";
     supabase.from("profiles").select("full_name, avatar_url").eq("user_id", user.id).maybeSingle()
       .then(({ data }) => {
-        if (data?.full_name) setName(data.full_name);
+        const display = data?.full_name && data.full_name !== "Student" ? data.full_name : fallback;
+        setName(display);
         if (data?.avatar_url) setAvatar(data.avatar_url);
       });
   }, [user]);
@@ -33,10 +36,17 @@ const DashboardLayout = () => {
             <SidebarTrigger />
             <div className="flex items-center gap-2">
               <NotificationBell />
-              <Avatar className="w-8 h-8">
-                {avatar && <AvatarImage src={avatar} alt={name} />}
-                <AvatarFallback className="bg-primary text-primary-foreground text-xs font-medium">{initials(name)}</AvatarFallback>
-              </Avatar>
+              <button
+                onClick={() => navigate("/dashboard/profile")}
+                className="rounded-full focus:outline-none focus:ring-2 focus:ring-ring transition hover:opacity-80"
+                aria-label="Open profile settings"
+                title="Profile settings"
+              >
+                <Avatar className="w-8 h-8">
+                  {avatar && <AvatarImage src={avatar} alt={name} />}
+                  <AvatarFallback className="bg-primary text-primary-foreground text-xs font-medium">{initials(name)}</AvatarFallback>
+                </Avatar>
+              </button>
             </div>
           </header>
           <main className="flex-1 p-4 sm:p-6 overflow-auto">
