@@ -24,34 +24,33 @@ export const NotificationBell = () => {
   const load = async () => {
     if (!user) return;
     const today = new Date();
-    const todayISO = today.toISOString().slice(0, 10);
-    const weekISO = addDays(today, 7).toISOString().slice(0, 10);
+    const weekEnd = addDays(today, 7).toISOString();
 
     const [{ data: cals }, { data: rsvps }] = await Promise.all([
       supabase.from("calendar_events")
-        .select("id, title, event_date")
+        .select("id, title, start_at")
         .eq("user_id", user.id)
-        .gte("event_date", todayISO)
-        .lte("event_date", weekISO)
-        .order("event_date"),
+        .gte("start_at", today.toISOString())
+        .lte("start_at", weekEnd)
+        .order("start_at"),
       supabase.from("event_rsvps")
-        .select("id, event_id, events(id, title, event_date)")
+        .select("id, event_id, events(id, title, start_at)")
         .eq("user_id", user.id),
     ]);
 
     const out: Notif[] = [];
-    (cals ?? []).forEach(c => out.push({
+    (cals ?? []).forEach((c: any) => out.push({
       id: `cal-${c.id}`, kind: "calendar", title: c.title,
-      date: c.event_date, link: "/dashboard/calendar",
+      date: c.start_at, link: "/dashboard/calendar",
     }));
     (rsvps ?? []).forEach((r: any) => {
       const e = r.events;
       if (!e) return;
-      const d = new Date(e.event_date);
+      const d = new Date(e.start_at);
       if (isWithinInterval(d, { start: today, end: addDays(today, 14) })) {
         out.push({
           id: `rsvp-${r.id}`, kind: "rsvp", title: e.title,
-          date: e.event_date, link: "/dashboard/events",
+          date: e.start_at, link: "/dashboard/events",
         });
       }
     });
